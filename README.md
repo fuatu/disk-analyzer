@@ -71,8 +71,8 @@ npm run dist
 This will create platform-specific installers in the `release` folder:
 
 - **macOS**: `.dmg` file
-- **Windows**: `.exe` installer  
-- **Linux**: `.AppImage` or other formats
+- **Windows**: `.exe` installer  (not tested)
+- **Linux**: `.AppImage` or other formats (not tested)
 
 #### macOS DMG Creation
 
@@ -140,28 +140,6 @@ diskanalyzer-electron/
    npm run dist
    ```
 
-## Troubleshooting
-
-### Common Issues
-
-**Build fails on macOS:**
-- Ensure you have Xcode command line tools installed: `xcode-select --install`
-
-**Distribution build fails:**
-- Make sure all dependencies are installed: `npm install`
-- Clear node_modules and reinstall: `rm -rf node_modules package-lock.json && npm install`
-
-**App doesn't start:**
-- Ensure React build is up to date: `npm run build`
-- Check console for any error messages
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## License
 

@@ -67,7 +67,6 @@ const App = () => {
   const [selectedDirectory, setSelectedDirectory] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [scanProgress, setScanProgress] = useState({ message: '', percentage: 0 });
-  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     window.electronAPI.onScanProgress((progressData) => {
@@ -86,7 +85,6 @@ const App = () => {
       setSelectedDirectory(directoryPath);
       setScanResult(null); // Clear previous scan result
       setScanProgress({ message: '', percentage: 0 }); // Clear previous progress
-      setSearchTerm(''); // Clear search term
     }
   };
 
@@ -129,28 +127,6 @@ const App = () => {
     }
   };
 
-  const filterTree = (node, term) => {
-    if (!node) return null;
-    const lowerCaseTerm = term.toLowerCase();
-
-    const matches = node.name.toLowerCase().includes(lowerCaseTerm);
-
-    if (node.children) {
-      const filteredChildren = node.children
-        .map(child => filterTree(child, term))
-        .filter(child => child !== null);
-
-      if (matches || filteredChildren.length > 0) {
-        return { ...node, children: filteredChildren };
-      }
-    } else if (matches) {
-      return { ...node };
-    }
-
-    return null;
-  };
-
-  const filteredScanResult = filterTree(scanResult, searchTerm);
 
   return (
     <div>
@@ -172,18 +148,7 @@ const App = () => {
       {scanResult && !scanResult.error && (
         <div>
           <h2>Detailed Scan Results:</h2>
-          <input
-            type="text"
-            placeholder="Search files/folders..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-          {filteredScanResult ? (
-            <DirectoryTree node={filteredScanResult} onDelete={handleDelete} />
-          ) : (
-            <p>No results found for "{searchTerm}"</p>
-          )}
+          <DirectoryTree node={scanResult} onDelete={handleDelete} />
         </div>
       )}
     </div>
