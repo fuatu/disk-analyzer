@@ -10,16 +10,63 @@ const formatBytes = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const getFileIcon = (nodeType) => {
+const getFileIcon = (nodeType, fileName = '') => {
   if (nodeType === 'directory') {
-    return '📁'; // Folder icon
-  } else {
-    return '📄'; // File icon
+    return '📁';
+  }
+  
+  // Get file extension
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  
+  // Return appropriate icon based on file type
+  switch (ext) {
+    case 'pdf': return '📄';
+    case 'doc':
+    case 'docx': return '📝';
+    case 'xls':
+    case 'xlsx': return '📊';
+    case 'ppt':
+    case 'pptx': return '📈';
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'svg': return '🖼️';
+    case 'mp4':
+    case 'avi':
+    case 'mov':
+    case 'mkv': return '🎬';
+    case 'mp3':
+    case 'wav':
+    case 'flac': return '🎵';
+    case 'zip':
+    case 'rar':
+    case '7z': return '📦';
+    case 'js':
+    case 'jsx':
+    case 'ts':
+    case 'tsx': return '⚡';
+    case 'html':
+    case 'css': return '🌐';
+    case 'py': return '🐍';
+    case 'java': return '☕';
+    case 'cpp':
+    case 'c': return '⚙️';
+    case 'txt': return '📃';
+    default: return '📄';
   }
 };
 
-const DirectoryTree = ({ node, parentSize = 0, onDelete }) => {
-  const [isOpen, setIsOpen] = useState(false);
+const getSizeBarColor = (percentage) => {
+  if (percentage > 80) return '#ef4444'; // Red
+  if (percentage > 60) return '#f59e0b'; // Orange
+  if (percentage > 40) return '#eab308'; // Yellow
+  if (percentage > 20) return '#22c55e'; // Green
+  return '#3b82f6'; // Blue
+};
+
+const DirectoryTree = ({ node, parentSize = 0, onDelete, level = 0 }) => {
+  const [isOpen, setIsOpen] = useState(level === 0); // Only expand root level (level 0)
 
   const toggleOpen = () => {
     if (node.type === 'directory') {
@@ -37,28 +84,90 @@ const DirectoryTree = ({ node, parentSize = 0, onDelete }) => {
   }) : [];
 
   const percentage = parentSize > 0 ? (node.size / parentSize) * 100 : 0;
-  const barColor = `hsl(${120 - (percentage * 1.2)}, 70%, 60%)`; // Green to Red gradient
+  const barColor = getSizeBarColor(percentage);
 
   return (
-    <div className="directory-tree-container">
+    <div className="directory-tree-container fade-in">
       <div className={`directory-tree-item ${node.type}`} onClick={toggleOpen}>
-        {node.type === 'directory' && <span className="toggle-icon">{isOpen ? '▼' : '►'}</span>}
-        <span style={{ marginRight: '5px' }}>{getFileIcon(node.type)}</span>
-        <span className={node.type === 'directory' ? 'directory-name' : 'file-name'} onClick={() => window.electronAPI.openPath(node.path)} style={{ cursor: 'pointer' }}>{node.name}</span>
-        <span className="size-info">({formatBytes(node.size)})</span>
-        <button onClick={(e) => { e.stopPropagation(); onDelete(node.path); }} style={{ marginLeft: '10px', backgroundColor: '#e74c3c', padding: '5px 8px', fontSize: '0.8em' }}>Delete</button>
+        {node.type === 'directory' && (
+          <span className={`toggle-icon ${isOpen ? 'open' : ''}`}>
+            ▶
+          </span>
+        )}
+        <span className="file-icon">{getFileIcon(node.type, node.name)}</span>
+        <span 
+          className={`item-name ${node.type === 'directory' ? 'directory-name' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            window.electronAPI.openPath(node.path);
+          }}
+          title={`Open ${node.name}`}
+        >
+          {node.name}
+        </span>
+        <span className="size-info">{formatBytes(node.size)}</span>
+        <button 
+          className="btn btn-danger delete-btn"
+          onClick={(e) => { 
+            e.stopPropagation(); 
+            onDelete(node.path); 
+          }}
+          title={`Delete ${node.name}`}
+        >
+          🗑️
+        </button>
       </div>
-      <div className="size-bar-container">
-        <div className="size-bar" style={{ width: `${percentage}%`, backgroundColor: barColor }}></div>
-      </div>
-      {isOpen && node.children && (
-        <div>
+      
+      {percentage > 0 && (
+        <div className="size-bar-container">
+          <div 
+            className="size-bar" 
+            style={{ 
+              width: `${Math.min(percentage, 100)}%`, 
+              backgroundColor: barColor 
+            }}
+          ></div>
+        </div>
+      )}
+      
+      {isOpen && node.children && sortedChildren.length > 0 && (
+        <div className="slide-in">
           {sortedChildren.map((child, index) => (
-            <DirectoryTree key={index} node={child} parentSize={node.size} onDelete={onDelete} />
+            <DirectoryTree 
+              key={`${child.path}-${index}`} 
+              node={child} 
+              parentSize={node.size} 
+              onDelete={onDelete}
+              level={level + 1}
+            />
           ))}
         </div>
       )}
     </div>
+  );
+};
+
+const ThemeToggle = () => {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    // Check for saved theme preference or default to light
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setIsDark(savedTheme === 'dark');
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = isDark ? 'light' : 'dark';
+    setIsDark(!isDark);
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
+
+  return (
+    <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
+      {isDark ? '☀️' : '🌙'}
+    </button>
   );
 };
 
@@ -76,6 +185,14 @@ const App = () => {
       } else {
         setScanProgress(progressData);
       }
+    });
+  }, []);
+
+  useEffect(() => {
+    window.electronAPI.onDirectorySelected((directoryPath) => {
+      setSelectedDirectory(directoryPath);
+      setScanResult(null); // Clear previous scan result
+      setScanProgress({ message: '', percentage: 0 }); // Clear previous progress
     });
   }, []);
 
@@ -104,7 +221,6 @@ const App = () => {
         setScanResult({ error: error.message });
       } finally {
         setIsLoading(false);
-        // setScanProgress(''); // Keep the last progress message
       }
     } else {
       setScanResult({ error: 'Please select a directory first.' });
@@ -127,30 +243,127 @@ const App = () => {
     }
   };
 
-
   return (
-    <div>
-      <h1>Disk Analyzer</h1>
-      <p>Visualize and manage your disk space efficiently.</p>
-      <button onClick={handleOpenDialog} disabled={isLoading}>Select Directory</button>
-      {selectedDirectory && <p>Selected Directory: {selectedDirectory}</p>}
-      <button onClick={handleScan} disabled={!selectedDirectory || isLoading}>Scan Disk</button>
-      {isLoading && (
-        <>
-          <button onClick={handleCancel} style={{ marginLeft: '10px' }}>Cancel Scan</button>
-          <p>{scanProgress.message} ({scanProgress.percentage}%)</p>
-          <div style={{ width: '100%', backgroundColor: '#e0e0e0', height: '20px', borderRadius: '10px', overflow: 'hidden' }}>
-            <div style={{ width: `${scanProgress.percentage}%`, backgroundColor: '#3498db', height: '100%', borderRadius: '10px', transition: 'width 0.5s ease-in-out' }}></div>
+    <div className="app-container">
+      {/* Header */}
+      <header className="app-header">
+        <div className="header-content">
+          <div className="app-title">
+            <div className="app-icon">💾</div>
+            <div>
+              <h1>DiskAnalyzer</h1>
+              <div className="app-subtitle">Visualize and manage your disk space efficiently</div>
+            </div>
           </div>
-        </>
-      )}
-      {scanResult && scanResult.error && <p style={{ color: 'red' }}>Error: {scanResult.error}</p>}
-      {scanResult && !scanResult.error && (
-        <div>
-          <h2>Detailed Scan Results:</h2>
-          <DirectoryTree node={scanResult} onDelete={handleDelete} />
+          <ThemeToggle />
         </div>
-      )}
+      </header>
+
+      {/* Main Content */}
+      <main className="main-content">
+        {/* Sidebar */}
+        <aside className="sidebar">
+          <div className="sidebar-section">
+            <h3 className="section-title">
+              <span className="section-icon">📂</span>
+              Directory Selection
+            </h3>
+            <button 
+              className="btn btn-primary btn-full" 
+              onClick={handleOpenDialog} 
+              disabled={isLoading}
+            >
+              {isLoading ? <span className="loading-spinner"></span> : '📁'}
+              Select Directory
+            </button>
+            
+            {selectedDirectory && (
+              <div className="selected-directory">
+                <strong>Selected:</strong>
+                <div className="directory-path">{selectedDirectory}</div>
+              </div>
+            )}
+          </div>
+
+          <div className="sidebar-section">
+            <h3 className="section-title">
+              <span className="section-icon">🔍</span>
+              Scan Control
+            </h3>
+            <button 
+              className="btn btn-secondary btn-full" 
+              onClick={handleScan} 
+              disabled={!selectedDirectory || isLoading}
+            >
+              {isLoading ? <span className="loading-spinner"></span> : '🚀'}
+              {isLoading ? 'Scanning...' : 'Start Scan'}
+            </button>
+            
+            {isLoading && (
+              <button 
+                className="btn btn-danger btn-full" 
+                onClick={handleCancel}
+                style={{ marginTop: 'var(--spacing-sm)' }}
+              >
+                ⏹️ Cancel Scan
+              </button>
+            )}
+          </div>
+
+          {(isLoading || scanProgress.message) && (
+            <div className="sidebar-section">
+              <div className="progress-section">
+                <div className="progress-header">
+                  <h3 className="section-title">
+                    <span className="section-icon">📊</span>
+                    Progress
+                  </h3>
+                  <span className="progress-percentage">{scanProgress.percentage}%</span>
+                </div>
+                <div className="progress-text">{scanProgress.message}</div>
+                <div className="progress-bar-container">
+                  <div 
+                    className="progress-bar" 
+                    style={{ width: `${scanProgress.percentage}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </aside>
+
+        {/* Content Area */}
+        <div className="content-area">
+          <div className="content-header">
+            <h2 className="content-title">
+              <span>📈</span>
+              Disk Usage Analysis
+            </h2>
+          </div>
+          
+          <div className="content-body">
+            {scanResult && scanResult.error && (
+              <div className="error-message">
+                <span>⚠️</span>
+                <span>Error: {scanResult.error}</span>
+              </div>
+            )}
+            
+            {scanResult && !scanResult.error ? (
+              <DirectoryTree node={scanResult} onDelete={handleDelete} />
+            ) : !isLoading && !scanResult ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">📊</div>
+                <h3 className="empty-state-title">Ready to Analyze</h3>
+                <p className="empty-state-description">
+                  Select a directory from the sidebar and click "Start Scan" to begin analyzing your disk usage.
+                  The results will appear here with an interactive tree view showing file and folder sizes.
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </main>
     </div>
   );
 };

@@ -1,28 +1,110 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Credits</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credits - DiskAnalyzer</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
             padding: 20px;
+            background-color: #f4f7f6;
+            color: #333;
             text-align: center;
-            overflow: hidden; /* Prevent scrollbars */
+            overflow: hidden;
         }
+        
+        .credits-container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
         h1 {
             color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 24px;
         }
-        p {
-            margin-bottom: 10px;
+        
+        .company {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #3498db;
+        }
+        
+        .license {
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: #666;
+        }
+        
+        .copyright {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 30px;
+        }
+        
+        .copyright a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .copyright a:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
         }
     </style>
 </head>
 <body>
-    <h1>DiskAnalyzer Credits</h1>
-    <p><strong>Company:</strong> Monitor Consulting OU</p>
-    <p><strong>License:</strong> Free to Use (ISC License)</p>
-    <p>Copyright © 2025 Fuat Ulugay</p>
-    <button onclick="window.close()" style="margin-top: 20px; padding: 10px 20px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">Close</button>
+    <div class="credits-container">
+        <h1>DiskAnalyzer</h1>
+        <div class="company">Monitor Consulting OU</div>
+        <div class="license">MIT License</div>
+        <div class="copyright">© 2025 Fuat Ulugay. All rights reserved. 
+            <br><a href="https://www.linkedin.com/in/fuatulugay/" target="_blank">LinkedIn</a>
+            <br><a href="https://github.com/fuatu/disk-analyzer" target="_blank">https://github.com/fuatu/disk-analyzer</a>
+        </div>
+        <button onclick="window.close()">Close</button>
+    </div>
+
+    <script>
+        // Handle external links to open in default browser
+        document.addEventListener('DOMContentLoaded', function() {
+            const links = document.querySelectorAll('a[href^="http"]');
+            links.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (window.electronAPI && window.electronAPI.openExternal) {
+                        window.electronAPI.openExternal(this.href);
+                    } else {
+                        // Fallback for development or if electronAPI is not available
+                        window.open(this.href, '_blank');
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>

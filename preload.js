@@ -6,9 +6,11 @@ contextBridge.exposeInMainWorld(
     scanDirectory: (directoryPath) => ipcRenderer.invoke('scan-directory', directoryPath),
     openDirectoryDialog: () => ipcRenderer.invoke('open-directory-dialog'),
     onScanProgress: (callback) => ipcRenderer.on('scan-progress', (event, message) => callback(message)),
+    onDirectorySelected: (callback) => ipcRenderer.on('directory-selected', (event, directoryPath) => callback(directoryPath)),
     openPath: (filePath) => ipcRenderer.invoke('open-path', filePath),
     deletePath: (filePath) => ipcRenderer.invoke('delete-path', filePath),
-    cancelScan: () => ipcRenderer.invoke('cancel-scan')
+    cancelScan: () => ipcRenderer.invoke('cancel-scan'),
+    openExternal: (url) => ipcRenderer.invoke('open-external', url)
   }
 );
 

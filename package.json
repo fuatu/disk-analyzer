@@ -1,51 +1,61 @@
 {
   "name": "diskanalyzer-electron",
   "version": "1.0.0",
-  "description": "",
+  "description": "A cross-platform disk space analyzer built with Electron and React",
   "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "electron .",
-    "build": "webpack --config webpack.config.js",
+    "build": "webpack --mode production",
     "dist": "electron-builder"
   },
+  "keywords": [
+    "electron",
+    "disk",
+    "analyzer",
+    "react"
+  ],
+  "author": "Monitor Consulting OU",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.22.0",
+    "@babel/preset-react": "^7.22.0",
+    "babel-loader": "^9.1.0",
+    "css-loader": "^6.8.0",
+    "electron": "^25.0.0",
+    "electron-builder": "^24.4.0",
+    "html-webpack-plugin": "^5.5.0",
+    "style-loader": "^3.3.0",
+    "webpack": "^5.85.0",
+    "webpack-cli": "^5.1.0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
   "build": {
-    "appId": "com.yourcompany.diskanalyzer",
+    "appId": "com.monitorconsulting.diskanalyzer",
     "productName": "DiskAnalyzer",
-    "mac": {
-      "category": "utility"
-    },
     "directories": {
       "output": "release"
     },
     "files": [
-      "dist/**/*",
       "main.js",
       "preload.js",
-      "package.json",
-      "Credits.html"
-    ]
-  },
-  "keywords": [],
-  "author": "Fuat Ulugay",
-  "company": "Monitor Consulting OU",
-  "license": "ISC",
-  "devDependencies": {
-    "@babel/core": "^7.27.7",
-    "@babel/plugin-transform-modules-commonjs": "^7.27.1",
-    "@babel/preset-react": "^7.27.1",
-    "babel-loader": "^10.0.0",
-    "css-loader": "^7.1.2",
-    "electron": "^37.1.0",
-    "electron-builder": "^26.0.12",
-    "html-webpack-plugin": "^5.6.3",
-    "style-loader": "^4.0.0",
-    "webpack": "^5.99.9",
-    "webpack-cli": "^6.0.1"
-  },
-  "dependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
-  },
-  "type": "commonjs"
+      "dist/**/*",
+      "Credits.html",
+      "assets/icons/**/*"
+    ],
+    "mac": {
+      "icon": "assets/icons/icon.icns",
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "icon": "assets/icons/icon.ico"
+    },
+    "linux": {
+      "icon": "assets/icons/icon.png",
+      "category": "Utility"
+    }
+  }
 }

@@ -93,18 +93,60 @@ async function scanDirectoryTree(event, directoryPath, isRoot = false) {
   };
 }
 
+
+function getAppIcon() {
+  // For window icons, PNG works better across all platforms
+  const iconPath = path.join(__dirname, 'assets', 'icons', 'icon.png');
+
+  console.log(`Platform: ${process.platform}`);
+  console.log(`Looking for icon at: ${iconPath}`);
+
+  // Check if icon file exists, return undefined if not (Electron will use default)
+  try {
+    const fs = require('fs');
+    fs.accessSync(iconPath, fs.constants.F_OK);
+    console.log(`✅ Icon file found: ${iconPath}`);
+    return iconPath;
+  } catch (error) {
+    console.log(`❌ Icon file not found: ${iconPath}. Using default system icon.`);
+    console.log(`Error: ${error.message}`);
+    return undefined;
+  }
+}
+
 function createWindow() {
+  let iconPath;
+
+  // Try to get the icon path, but don't fail if it doesn't work
+  try {
+    iconPath = getAppIcon();
+  } catch (error) {
+    console.log('Error getting app icon:', error.message);
+    iconPath = undefined;
+  }
+
   const win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1400,
+    height: 900,
+    minWidth: 1000,
+    minHeight: 700,
+    icon: iconPath, // Use the resolved icon path (or undefined for default)
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: true,
       contextIsolation: true,
     },
+    titleBarStyle: 'hiddenInset',
+    show: false, // Don't show until ready
   });
 
   win.loadFile(path.join(__dirname, 'dist', 'index.html'));
+
+  // Show window when ready to prevent flash
+  win.once('ready-to-show', () => {
+    win.show();
+  });
+
   // win.webContents.openDevTools(); // Removed to prevent dev tools from opening automatically
   win.on('closed', () => {
     app.quit(); // Quit the app when the window is closed
@@ -173,6 +215,16 @@ ipcMain.handle('delete-path', async (event, itemPath) => {
   }
 });
 
+ipcMain.handle('open-external', async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    console.error(`Failed to open external URL ${url}: ${error.message}`);
+    return { error: error.message };
+  }
+});
+
 let creditsWin = null;
 
 function createCreditsWindow() {
@@ -205,48 +257,110 @@ function createCreditsWindow() {
   });
 }
 
-app.whenReady().then(() => {
-  app.setName('DiskAnalyzer');
-  createWindow();
-
+function createMenu() {
   const template = [
     {
-      label: app.name,
+      label: 'DiskAnalyzer',
       submenu: [
-        {
-          label: 'About ' + app.name,
-          click: () => {
-            app.showAboutPanel();
-          }
-        },
-        {
-          label: 'Credits',
-          click: () => {
-            createCreditsWindow();
-          }
-        },
-        {
-          type: 'separator'
-        },
+        // {
+        //   label: 'Credits',
+        //   click: () => {
+        //     createCreditsWindow();
+        //   }
+        // },
+        { type: 'separator' },
         {
           label: 'Quit',
-          accelerator: 'CmdOrCtrl+Q',
+          accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
           click: () => {
             app.quit();
+          }
+        }
+      ]
+    },
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Open Directory...',
+          accelerator: process.platform === 'darwin' ? 'Cmd+O' : 'Ctrl+O',
+          click: async () => {
+            const result = await dialog.showOpenDialog({
+              properties: ['openDirectory']
+            });
+            if (!result.canceled && result.filePaths.length > 0) {
+              // Send the selected directory to the renderer process
+              const focusedWindow = BrowserWindow.getFocusedWindow();
+              if (focusedWindow) {
+                focusedWindow.webContents.send('directory-selected', result.filePaths[0]);
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'close' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'About DiskAnalyzer',
+          click: () => {
+            createCreditsWindow();
           }
         }
       ]
     }
   ];
 
+  // macOS specific menu adjustments
+  if (process.platform === 'darwin') {
+    // Add About menu item at the beginning for macOS (standard macOS behavior)
+    template[0].submenu.unshift({
+      label: 'About DiskAnalyzer',
+      click: () => {
+        createCreditsWindow();
+      }
+    });
+
+    // Window menu adjustments for macOS
+    template[3].submenu = [
+      { role: 'close' },
+      { role: 'minimize' },
+      { role: 'zoom' },
+      { type: 'separator' },
+      { role: 'front' }
+    ];
+  }
+
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
+}
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
+app.whenReady().then(() => {
+  app.setName('DiskAnalyzer');
+  createMenu();
+  createWindow();
 });
 
 app.on('window-all-closed', () => {
