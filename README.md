@@ -2,6 +2,8 @@
 
 A cross-platform disk space analyzer built with Electron and React. DiskAnalyzer helps you visualize disk usage by scanning directories and displaying file/folder sizes in an intuitive interface.
 
+![Disk Analyzer](diskanalyzer.jpg)
+
 ## Features
 
 - 📊 Directory tree scanning with real-time progress
