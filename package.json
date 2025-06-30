@@ -42,6 +42,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "worker.js",
       "dist/**/*",
       "Credits.html",
       "assets/icons/**/*"

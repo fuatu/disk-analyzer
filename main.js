@@ -1,98 +1,70 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
+const { Worker } = require('worker_threads');
 
-let scanCanceled = false;
+let currentWorker = null;
 
-let scanStats = { processed: 0, total: 0 };
-
-async function countDirectories(directoryPath) {
-  let count = 0;
-  try {
-    const files = await fs.readdir(directoryPath, { withFileTypes: true });
-    for (const file of files) {
-      if (file.isDirectory()) {
-        count++;
-        const fullPath = path.join(directoryPath, file.name);
-        try {
-          count += await countDirectories(fullPath);
-        } catch (error) {
-          // Continue counting even if some directories are inaccessible
+// Multi-threaded scan using worker threads for the root directory
+async function scanDirectoryTreeWithWorkers(event, directoryPath) {
+  return new Promise((resolve, reject) => {
+    let lastUpdate = Date.now();
+    let totalDirectories = 0;
+    let processedDirectories = 0;
+    let estimatedTotal = 1; // Start with at least 1 to avoid division by zero
+    
+    const worker = new Worker(path.join(__dirname, 'worker.js'), {
+      workerData: { directoryPath, enableProgress: true }
+    });
+    
+    // Store the current worker for cancellation
+    currentWorker = worker;
+    
+    worker.on('message', (data) => {
+      if (data.type === 'progress') {
+        const now = Date.now();
+        
+        if (data.found) {
+          // Update our estimate of total directories as we discover them
+          totalDirectories += data.found;
+          estimatedTotal = Math.max(estimatedTotal, totalDirectories + Math.floor(totalDirectories * 0.1)); // Add 10% buffer for undiscovered dirs
         }
-      }
-    }
-  } catch (error) {
-    // Continue if directory is inaccessible
-  }
-  return count;
-}
-
-async function scanDirectoryTree(event, directoryPath, isRoot = false) {
-  if (scanCanceled) {
-    return { canceled: true };
-  }
-  
-  if (isRoot) {
-    // Count total directories for progress tracking
-    event.sender.send('scan-progress', { message: 'Counting directories...', percentage: 0 });
-    scanStats.total = await countDirectories(directoryPath);
-    scanStats.processed = 0;
-  }
-  
-  let totalSize = 0;
-  const children = [];
-
-  try {
-    const files = await fs.readdir(directoryPath, { withFileTypes: true });
-
-    for (const file of files) {
-      const fullPath = path.join(directoryPath, file.name);
-      try {
-        if (file.isDirectory()) {
-          scanStats.processed++;
-          const percentage = scanStats.total > 0 ? Math.round((scanStats.processed / scanStats.total) * 100) : 0;
+        
+        if (data.processed) {
+          processedDirectories += data.processed;
+        }
+        
+        // Throttle progress updates to every 200ms to avoid overwhelming the UI
+        if (now - lastUpdate > 200) {
+          const percentage = Math.min(Math.floor((processedDirectories / estimatedTotal) * 100), 95);
           event.sender.send('scan-progress', { 
-            message: `Scanning: ${file.name}`, 
-            percentage: Math.min(percentage, 100)
+            message: `Scanning: ${data.currentPath}`, 
+            percentage: percentage
           });
-          
-          const subDir = await scanDirectoryTree(event, fullPath, false);
-          if (subDir.canceled) return { canceled: true }; // Propagate cancellation
-          totalSize += subDir.size;
-          children.push({
-            name: file.name,
-            path: fullPath,
-            size: subDir.size,
-            type: 'directory',
-            children: subDir.children,
-          });
-        } else {
-          const stats = await fs.stat(fullPath);
-          totalSize += stats.size;
-          children.push({
-            name: file.name,
-            path: fullPath,
-            size: stats.size,
-            type: 'file',
-          });
+          lastUpdate = now;
         }
-      } catch (error) {
-        console.error(`Error accessing ${fullPath}: ${error.message}`);
-        // Continue scanning other files even if one fails
+      } else if (data.type === 'result') {
+        currentWorker = null; // Clear reference when done
+        resolve(data.result);
+      } else if (data.type === 'cancelled') {
+        currentWorker = null; // Clear reference when cancelled
+        resolve({ canceled: true });
       }
-    }
-  } catch (error) {
-    console.error(`Error reading directory ${directoryPath}: ${error.message}`);
-  }
-  return {
-    name: path.basename(directoryPath),
-    path: directoryPath,
-    size: totalSize,
-    type: 'directory',
-    children: children,
-  };
+    });
+    
+    worker.on('error', (err) => {
+      currentWorker = null; // Clear reference on error
+      reject(err);
+    });
+    
+    worker.on('exit', (code) => {
+      currentWorker = null; // Clear reference on exit
+      if (code !== 0 && code !== 1) { // Exit code 1 is expected for cancelled workers
+        reject(new Error(`Worker stopped with exit code ${code}`));
+      }
+    });
+  });
 }
-
 
 function getAppIcon() {
   // For window icons, PNG works better across all platforms
@@ -176,9 +148,19 @@ ipcMain.handle('open-path', async (event, filePath) => {
 
 ipcMain.handle('scan-directory', async (event, directoryPath) => {
   console.log(`Scanning directory: ${directoryPath}`);
-  scanCanceled = false; // Reset cancellation flag for new scan
   try {
-    const tree = await scanDirectoryTree(event, directoryPath, true);
+    // Use worker thread for scanning with real-time progress
+    event.sender.send('scan-progress', { message: 'Starting scan...', percentage: 0 });
+    const tree = await scanDirectoryTreeWithWorkers(event, directoryPath);
+    if (tree.canceled) {
+      event.sender.send('scan-progress', { message: 'Scan cancelled.', percentage: 0 });
+      return tree;
+    }
+    
+    // Log final result for debugging
+    console.log(`Scan completed for ${directoryPath}. Total size: ${tree.size} bytes (${(tree.size / (1024*1024*1024)).toFixed(2)} GB)`);
+    
+    event.sender.send('scan-progress', { message: 'Scan completed!', percentage: 100 });
     return tree;
   } catch (error) {
     console.error(`Failed to scan directory ${directoryPath}: ${error.message}`);
@@ -187,8 +169,13 @@ ipcMain.handle('scan-directory', async (event, directoryPath) => {
 });
 
 ipcMain.handle('cancel-scan', () => {
-  scanCanceled = true;
-  console.log('Scan cancelled by user.');
+  console.log('Scan cancellation requested by user.');
+  if (currentWorker) {
+    // Send cancel message to worker
+    currentWorker.postMessage({ type: 'cancel' });
+    console.log('Cancel message sent to worker.');
+  }
+  return { success: true };
 });
 
 ipcMain.handle('delete-path', async (event, itemPath) => {
