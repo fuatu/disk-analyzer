@@ -14,11 +14,47 @@ parentPort.on('message', (data) => {
   }
 });
 
+// Directories to skip on macOS due to incorrect size reporting
+const MACOS_SYSTEM_DIRS = [
+  '/System',
+  '/Library/Developer',
+  '/private/var/vm',
+  '/cores',
+  '/.Spotlight-V100',
+  '/.DocumentRevisions-V100',
+  '/.fseventsd',
+  '/dev',
+  '/net',
+  '/home'
+];
+
+function shouldSkipDirectory(dirPath) {
+  // Skip system directories on macOS that report incorrect sizes
+  if (process.platform === 'darwin') {
+    return MACOS_SYSTEM_DIRS.some(systemDir => 
+      dirPath === systemDir || dirPath.startsWith(systemDir + '/')
+    );
+  }
+  return false;
+}
+
 async function scanDirectory(directoryPath, enableProgress = false) {
   // Check for cancellation at the start of each directory scan
   if (cancelled) {
     parentPort.postMessage({ type: 'cancelled' });
     process.exit(0);
+  }
+  
+  // Skip system directories that report incorrect information on macOS
+  if (shouldSkipDirectory(directoryPath)) {
+    console.log(`Skipping system directory: ${directoryPath}`);
+    return {
+      name: path.basename(directoryPath),
+      path: directoryPath,
+      size: 0,
+      type: 'directory',
+      children: [],
+    };
   }
   
   let totalSize = 0;
