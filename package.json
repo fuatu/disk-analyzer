@@ -1,6 +1,6 @@
 {
   "name": "diskanalyzer-electron",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A cross-platform disk space analyzer built with Electron and React",
   "main": "main.js",
   "scripts": {
